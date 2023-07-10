@@ -16,4 +16,9 @@ def load_config():
     with open(global_path, "r") as ymlconfig:
         config = yaml.load(ymlconfig, Loader=yaml.FullLoader)
 
+    survey_hashmap = {"vla_first": "VLA FIRST (1.4 GHz)", "nvss": "NVSS"}
+
+    # Transcribe survey name for SkyView
+    config["survey"] = survey_hashmap[config["survey"]]
+
     return config
