@@ -1,6 +1,7 @@
 import requests
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from astropy.io import fits
 from astroquery.skyview import SkyView
@@ -8,99 +9,137 @@ from astropy.coordinates import SkyCoord
 from astropy import units as u
 from pathlib import Path
 from urllib.request import urlretrieve
+from sklearn.neighbors import NearestNeighbors
 
 from utils import create_path
 
 
 # Function to generate the appropriate filename convention for any entry
-def name_string(entry):
+
+
+def read_metadata(filename="mirabestdata.txt"):
+    # Read the data from the file into a DataFrame
+    data = pd.read_csv("mirabestdata.txt", delim_whitespace=True, skiprows=1, header=None)
+
+    # Remove columns 0-3 and 6
+    data = data.drop([0, 1, 2, 6], axis=1)
+
+    # Rename the columns for readability
+    data.columns = ["ra", "dec", "z", "size", "label"]
+
+    # Apply filters to remove rows with radial extent greater than 270 and class 400 or 402 objects
+    data = data[(data["size"] < 270) & (~data["label"].isin(["400", "402"]))]
+
+    # Convert from decimal hours to degrees
+    data["ra"] = data["ra"] * 15
+
+    # Reset index to get consecutive integers as the index
+    data.reset_index(drop=True, inplace=True)
+
+    return data
+
+
+def update_metadata(mb_metadata, rgz_metadata, threshold=15):
+    """
+    For each source in in the MiraBest data, find the nearest source in the RGZ data and
+    replace the size in the MiraBest data wtih the corresponding size from the RGZ data-set
+    """
+
+    # Fit sklearn nearest neighbours model to the RGZ data
+    rgz_coords = rgz_metadata[["radio.ra", "radio.dec"]].values
+    rgz_nn = NearestNeighbors(n_neighbors=1, algorithm="ball_tree").fit(rgz_coords)
+
+    # Find the nearest RGZ source to each MiraBest source
+    mb_coords = mb_metadata[["ra", "dec"]].values
+    distances, indices = rgz_nn.kneighbors(mb_coords)
+
+    print(
+        f"""Number of MiraBest sources with angular size replaced by RGZ DR1 value: 
+        {np.sum(distances < threshold)} of {len(mb_metadata)} (threshold: {threshold} arcsec) \n"""
+    )
+
+    # Replace the size in the MiraBest data with the corresponding size from the RGZ data
+    #  if distance is less than 0.1 arcsec
+    mb_metadata["size"] = np.where(
+        distances < threshold,
+        rgz_metadata["radio.max_angular_extent"].values[indices],
+        mb_metadata["size"],
+    )
+
+    return mb_metadata
+
+
+def name_string(label, ra, dec, z, size):
     """This takes an entry with columns RA, dec, z, size_rad and class and makes a string to label it"""
 
-    label = entry[4].astype(int).astype(str)
-    ra = "{:07.3f}".format(entry[0] * 15)  # Moving both into degrees
-    dec = "{:+08.3f}".format(entry[1])  # Retaining sign to keep length consistent
-    z = "{:06.4f}".format(entry[2])  # All redshifts are < 0.5, so keep four significant figures
-    rad = "{:07.2f}".format(entry[3])  # Radial size is a maximum of four figures before point
+    label = label.astype(int).astype(str)
+    ra = "{:07.3f}".format(ra)  # Moving both into degrees
+    dec = "{:+08.3f}".format(dec)  # Retaining sign to keep length consistent
+    z = "{:06.4f}".format(z)  # All redshifts are < 0.5, so keep four significant figures
+    size = "{:07.2f}".format(size)  # Radial size is a maximum of four figures before point
 
-    name = label + "_" + ra + dec + "_" + z + "_" + rad
+    name = label + "_" + ra + dec + "_" + z + "_" + size
 
     return name
 
 
-def image_download(entry, survey="VLA FIRST (1.4 GHz)", pixels=150):
+def image_download(label, ra, dec, z, size, survey="VLA FIRST (1.4 GHz)", pixels=150):
     """Download an image from an entry of the same format as previously"""
 
     # Creating the path to the file and the name it'll be saved as
     dir = Path("MiraBest") / survey / "FITS"
     create_path(dir)
-    filename = dir / (name_string(entry) + ".fits")
+    filename = dir / (name_string(label, ra, dec, z, size) + ".fits")
 
-    ra, dec = entry[0], entry[1]
+    # print(f"Downloading {filename}...")
+    print(f"Attempting to query SkyView for image... (RA: {ra}, DEC: {dec})")
+    coords = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
 
-    # Preventing any duplicate downloads
-    if filename.exists() is True:
-        print(f"File {filename} already exists")
-    else:
-        coords = (ra, dec)
-        # print(f"Downloading {filename}...")
-        # coords = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
-        print(f"Attempting to query SkyView for image... (RA: {ra}, DEC: {dec})")
-        location = SkyView.get_image_list(position=coords, survey=survey, pixels=pixels)
-        print("Query successful!")
+    # try:
+    #     hdu = SkyView.get_images(position=coords, survey=["VLA FIRST (1.4 GHz)"])[0]
 
-        try:
-            # data = SkyView.get_images(position=coords, survey=["VLA FIRST (1.4 GHz)"])
-            # Save fits file to disk
-            # hdu = data[0][0]
-            # hdu.writeto(filename, overwrite=True)
+    # except:
+    #     print("Failed to query SkyView, most likely timeout.")
+    #     return
 
-            print(f"Downloading image from {url[0]}")
-            urlretrieve(location[0], filename)
-            file = requests.get(url[0], allow_redirects=True)
-            # print(filename)
+    sky = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
+    url = SkyView.get_image_list(position=sky, survey=survey, cache=False, pixels=pixels)
+    try:
+        file = requests.get(url[0], allow_redirects=True)
+    except:
+        print("Unable to download", filename)
+        return None
 
-            # Convert fits image to numpy array
-            # hdu = fits.open(filename)[0]
-            img = np.squeeze(hdu.data)
-            # Plot image as sanity check
-            plt.imshow(img, cmap="hot")
-            plt.show()
-            plt.savefig("fits_img.png")
+    try:
+        open(filename, "wb").write(file.content)
+    except:
+        print("No FITS available:", filename)
+        return None
 
-        except:
-            print("Problem with url", url)
-            return None
+    hdu = fits.open(filename)
+    # hdu.writeto(filename, overwrite=True)
 
-
-# survey = "NVSS"  # ["VLA FIRST (1.4 GHz)", "NVSS"]
-survey = "VLA FIRST (1.4 GHz)"
+    img = np.squeeze(hdu[0].data)
+    # Plot image as sanity check
+    plt.imshow(img, cmap="hot")
+    plt.savefig("fits_img.png")
+    plt.close()
+    print("Successfully pulled image from SkyView")
 
 
 if __name__ == "__main__":
-    with open("mirabestdata.txt", "r") as f:
-        data = f.read().splitlines()
-
-    dataset = []
-
-    # Splitting out the relevant columns: in order, RA, dec, z, size_rad and FR_class
-    for i in range(1, len(data)):
-        columns = data[i].split()
-
-        # A filter to remove any with radial extent greater than the image size
-        if float(columns[7]) < 270:
-            # A filter to remove any class 400 or 402 objects; these are "unclassifiable" and useless
-            # for training
-            if columns[8] != "400" and columns[8] != "402":
-                if i == 1:
-                    dataset = (np.asarray(columns[3:6] + columns[7:9])).astype(float)
-
-                else:
-                    columns = (np.asarray(columns[3:6] + columns[7:9])).astype(float)
-                    dataset = np.concatenate((dataset, columns))
-
-    # Final dataset with arrays of data for individual objects
-    dataset = np.reshape(dataset, (-1, 5))
+    # survey = "NVSS"  # ["VLA FIRST (1.4 GHz)", "NVSS"]
+    survey = "VLA FIRST (1.4 GHz)"
 
     # Download files from SkyView
-    for i in range(len(dataset)):
-        image_download(dataset[i], survey=survey, pixels=150)
+    meta_data = read_metadata()
+    rgz_metadata = pd.read_csv("rgz.csv")
+    meta_data = update_metadata(meta_data, rgz_metadata)
+
+    # Save dataframe as .parquet
+    meta_data.to_parquet("mirabest.parquet")
+
+    for i, row in meta_data.iterrows():
+        image_download(
+            row["label"], row["ra"], row["dec"], row["z"], row["size"], survey=survey, pixels=150
+        )
