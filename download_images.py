@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.request import urlretrieve
 from sklearn.neighbors import NearestNeighbors
 
-from utils import create_path
+from utils import create_path, load_config
 
 
 # Function to generate the appropriate filename convention for any entry
@@ -128,8 +128,7 @@ def image_download(label, ra, dec, z, size, survey="VLA FIRST (1.4 GHz)", pixels
 
 
 if __name__ == "__main__":
-    # survey = "NVSS"  # ["VLA FIRST (1.4 GHz)", "NVSS"]
-    survey = "VLA FIRST (1.4 GHz)"
+    config = load_config()
 
     # Download files from SkyView
     meta_data = read_metadata()
@@ -141,5 +140,11 @@ if __name__ == "__main__":
 
     for i, row in meta_data.iterrows():
         image_download(
-            row["label"], row["ra"], row["dec"], row["z"], row["size"], survey=survey, pixels=150
+            row["label"],
+            row["ra"],
+            row["dec"],
+            row["z"],
+            row["size"],
+            survey=config["survey"],
+            pixels=config["crop_size"],
         )
