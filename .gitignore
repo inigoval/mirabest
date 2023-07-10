@@ -4,3 +4,6 @@ __pycache__
 *.ipynb
 *.csv
 *.png
+data_batch*
+test_batch*
+batches.meta
