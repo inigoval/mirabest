@@ -95,9 +95,8 @@ def read_fits_image(fitsfile, survey="VLA FIRST (1.4 GHz)"):
 
 
 if __name__ == "__main__":
-    # survey = "NVSS"  # ["VLA FIRST (1.4 GHz)", "NVSS"]
-    survey = "VLA FIRST (1.4 GHz)"
-    dir = Path("MiraBest") / survey / "FITS"
+    config = load_config()
+    dir = Path("MiraBest") / config["survey"] / "FITS"
 
     list = dir.glob("*.fits")
 
@@ -113,4 +112,4 @@ if __name__ == "__main__":
         # Create images for any file not in the blacklist
         if str(file)[18:52] not in blacklist:
             print(f"Saving png file: {str(file)}")
-            read_fits_image(file, survey=survey)
+            read_fits_image(file, survey=config["survey"])
