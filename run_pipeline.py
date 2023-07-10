@@ -14,6 +14,7 @@ from sklearn.neighbors import NearestNeighbors
 from utils import create_path, load_config
 from download_images import image_download, read_metadata, update_metadata
 from fits_to_png import read_fits_image
+from batch_dataset import build_dataset
 
 if __name__ == "__main__":
     config = load_config()
