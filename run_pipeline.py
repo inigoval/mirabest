@@ -38,6 +38,9 @@ if __name__ == "__main__":
             pixels=config["crop_size"],
         )
 
+    print("FITS downloads completed\n")
+    print("Converting FITS files to PNG images...\n")
+
     # Main directory for data extraction
     dir = Path("MiraBest") / config["survey"]
     create_path(dir, dir / "FITS", dir / "PNG")
@@ -56,5 +59,8 @@ if __name__ == "__main__":
         if str(file)[18:52] not in blacklist:
             print(f"Saving png file: {str(file)}")
             read_fits_image(file, survey=config["survey"])
+
+    print("PNG conversion completed\n")
+    print("Batching dataset...\n")
 
     build_dataset(dir, n_batches=config["n_batches"])
