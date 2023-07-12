@@ -83,24 +83,14 @@ def name_string(label, ra, dec, z, size):
     return name
 
 
-def image_download(label, ra, dec, z, size, survey="VLA FIRST (1.4 GHz)", pixels=150):
+def image_download(filename, ra, dec, survey="VLA FIRST (1.4 GHz)", pixels=150):
     """Download an image from an entry of the same format as previously"""
 
     # Creating the path to the file and the name it'll be saved as
-    dir = Path("MiraBest") / survey / "FITS"
-    create_path(dir)
-    filename = dir / (name_string(label, ra, dec, z, size) + ".fits")
+    # filename = dir / (name_string(label, ra, dec, z, size) + ".fits")
 
     # print(f"Downloading {filename}...")
     print(f"Attempting to query SkyView for image... (RA: {ra}, DEC: {dec})")
-    coords = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
-
-    # try:
-    #     hdu = SkyView.get_images(position=coords, survey=["VLA FIRST (1.4 GHz)"])[0]
-
-    # except:
-    #     print("Failed to query SkyView, most likely timeout.")
-    #     return
 
     sky = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
     url = SkyView.get_image_list(position=sky, survey=survey, cache=False, pixels=pixels)
@@ -138,13 +128,21 @@ if __name__ == "__main__":
     # Save dataframe as .parquet
     meta_data.to_parquet("mirabest.parquet")
 
+    dir = Path("MiraBest") / config["survey"] / "FITS"
+    create_path(dir)
+
     for i, row in meta_data.iterrows():
-        image_download(
-            row["label"],
-            row["ra"],
-            row["dec"],
-            row["z"],
-            row["size"],
-            survey=config["survey"],
-            pixels=config["crop_size"],
+        filename = dir / (
+            name_string(row["label"], row["ra"], row["dec"], row["z"], row["size"]) + ".fits"
         )
+
+        if filename.exists():
+            print(f"FITS file {filename} already exists - manually delete to re-download")
+        else:
+            image_download(
+                filename,
+                row["ra"],
+                row["dec"],
+                survey=config["survey"],
+                pixels=config["crop_size"],
+            )
