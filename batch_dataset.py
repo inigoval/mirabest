@@ -79,7 +79,7 @@ def build_dataset(path, n_batches=7):
         pickle.dump(batch, f)
 
     print(f"Test batch containing {len(batch['labels'])} images saved\n")
-    print(f"Number of images remaining: {len(filenames)}\n")
+    print(f"Train images remaining: {len(filenames)}\n")
 
     # Training batches
     n_batches = 7
@@ -128,5 +128,6 @@ def build_dataset(path, n_batches=7):
 if __name__ == "__main__":
     config = load_config()
     path = Path("MiraBest") / config["survey"]
+    print(path)
 
     build_dataset(path, n_batches=config["n_batches"])
