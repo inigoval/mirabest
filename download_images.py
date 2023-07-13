@@ -86,35 +86,35 @@ def name_string(label, ra, dec, z, size):
 def image_download(filename, ra, dec, survey="VLA FIRST (1.4 GHz)", pixels=150):
     """Download an image from an entry of the same format as previously"""
 
-    # Creating the path to the file and the name it'll be saved as
-    # filename = dir / (name_string(label, ra, dec, z, size) + ".fits")
-
-    # print(f"Downloading {filename}...")
     print(f"Attempting to query SkyView for image... (RA: {ra}, DEC: {dec})")
 
+    # Get co ordinates
     sky = SkyCoord(ra * u.deg, dec * u.deg, frame="icrs")
     url = SkyView.get_image_list(position=sky, survey=survey, cache=False, pixels=pixels)
+
+    # Download .fits file from SkyView server
     try:
         file = requests.get(url[0], allow_redirects=True)
     except:
         print("Unable to download", filename)
         return None
 
+    # Write .fits file to disk
     try:
         open(filename, "wb").write(file.content)
     except:
         print("No FITS available:", filename)
         return None
 
-    hdu = fits.open(filename)
-    # hdu.writeto(filename, overwrite=True)
+    print("Successfully pulled image from SkyView")
 
-    img = np.squeeze(hdu[0].data)
     # Plot image as sanity check
+    hdu = fits.open(filename)
+    img = np.squeeze(hdu[0].data)
+
     plt.imshow(img, cmap="hot")
     plt.savefig("fits_img.png")
     plt.close()
-    print("Successfully pulled image from SkyView")
 
 
 if __name__ == "__main__":
@@ -132,15 +132,14 @@ if __name__ == "__main__":
     create_path(dir)
 
     for i, row in meta_data.iterrows():
-        filename = dir / (
-            name_string(row["label"], row["ra"], row["dec"], row["z"], row["size"]) + ".fits"
-        )
+        filename = name_string(row["label"], row["ra"], row["dec"], row["z"], row["size"]) + ".fits"
+        path = dir / filename
 
-        if filename.exists():
-            print(f"FITS file {filename} already exists - manually delete to re-download")
+        if path.exists():
+            print(f"FITS file {path} already exists - manually delete to re-download")
         else:
             image_download(
-                filename,
+                path,
                 row["ra"],
                 row["dec"],
                 survey=config["survey"],
