@@ -12,7 +12,7 @@ from urllib.request import urlretrieve
 from sklearn.neighbors import NearestNeighbors
 
 from utils import create_path, load_config
-from download_images import image_download, read_metadata, update_metadata
+from download_images import image_download, read_metadata, update_metadata, name_string
 from fits_to_png import read_fits_image
 from batch_dataset import build_dataset
 
@@ -27,23 +27,23 @@ if __name__ == "__main__":
     # Save dataframe as .parquet
     meta_data.to_parquet("mirabest.parquet")
 
-    for i, row in meta_data.iterrows():
-        image_download(
-            row["label"],
-            row["ra"],
-            row["dec"],
-            row["z"],
-            row["size"],
-            survey=config["survey"],
-            pixels=config["crop_size"],
-        )
-
-    print("FITS downloads completed\n")
-    print("Converting FITS files to PNG images...\n")
-
-    # Main directory for data extraction
     dir = Path("MiraBest") / config["survey"]
     create_path(dir, dir / "FITS", dir / "PNG")
+
+    for i, row in meta_data.iterrows():
+        filename = name_string(row["label"], row["ra"], row["dec"], row["z"], row["size"]) + ".fits"
+        path = dir / "FITS" / filename
+
+        if path.exists():
+            print(f"FITS file {path} already exists - manually delete to re-download")
+        else:
+            image_download(
+                path,
+                row["ra"],
+                ["dec"],
+                survey=config["survey"],
+                pixels=config["crop_size"],
+            )
 
     # List of files confirmed to have missing data
     blacklist = [
