@@ -5,74 +5,22 @@ from pathlib import Path
 from astropy.io import fits
 from astropy.stats import sigma_clipped_stats
 
-from utils import create_path
+from utils import create_path, load_config, array_to_png
 
 
-# Hongming's image_convert function to create pngs
-def image_convert(savepath, img):
+def read_fits_image(filepath, survey="VLA FIRST (1.4 GHz)"):
     """
-    This function writes a PNG file from a numpy array.
-    Args:
-    name: Name of the output file without the .png suffix
-    img: Input numpy array
-    Returns:
-    Writes PNG file to disk.
-    Raises:
-    KeyError: Raises an exception.
-    """
-    im = Image.fromarray(img)
-    im = im.convert("L")
-    im.save(savepath)
-    return
-
-
-# A modified version of Hongming's crop_center function
-def crop_centre(img, cropx, cropy):
-    """ "
-    This function crop images from centre to given size.
-    Args:
-    img: input image
-    cropx: output image width
-    cropy: output image height
-    Returns:
-    data of cropped img
-    Raises:
-    """
-
-    xsize = np.shape(img)[0]  # image width
-    ysize = np.shape(img)[1]  # image height
-    startx = xsize // 2 - (cropx // 2)
-    starty = ysize // 2 - (cropy // 2)
-    img_slice = img[starty : starty + cropy, startx : startx + cropx]
-    # This is a sub-optimal solution
-    return img_slice
-
-
-# A modified version of Hongming's read_fits_image function; now creates all required pngs
-def read_fits_image(fitsfile, survey="VLA FIRST (1.4 GHz)"):
-    """
-    This function extracts the image data from a FITS image, clips
-    and linearly scales it.
+    This function reads in a fits file, preprocesses it and converts it to a png image.
 
     Args:
-        fitsfile: Path to the input FITS file
-        survey: Name of the survey the FITS file is from
-
-    Returns:
-        img: Numpy array containing image from FITS file
+        filepath: Path to the fits file to read in
+        survey: Survey the fits file is from
     """
 
     dir = Path("MiraBest") / survey / "PNG"
     create_path(dir)
 
-    # Obtaining the naming convention
-    namestring = str(fitsfile)[-39:-5]
-
-    # with fits.open(fitsfile, ignore_missing_end=True) as hdu:
-    #     img = hdu[0].data
-    #     hdu.close()
-
-    img = fits.getdata(fitsfile)
+    img = fits.getdata(filepath)
 
     # Remove nans
     img[np.where(np.isnan(img))] = 0.0
@@ -84,12 +32,12 @@ def read_fits_image(fitsfile, survey="VLA FIRST (1.4 GHz)"):
     # normalise to [0, 1]:
     image_max, image_min = img.max(), img.min()
     img = (img - image_min) / (image_max - image_min)
+
     # remap to [0, 255] for greyscale:
     img *= 255.0
 
-    # Check if the file has already been saved as the final png
-    savepath = dir / (namestring + ".png")
-    image_convert(str(savepath), img)
+    img = array_to_png(img)
+    img.save(dir / (filepath.stem + ".png"))
 
     return img
 

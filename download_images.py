@@ -10,6 +10,7 @@ from astropy import units as u
 from pathlib import Path
 from urllib.request import urlretrieve
 from sklearn.neighbors import NearestNeighbors
+from tqdm import tqdm
 
 from utils import create_path, load_config
 
@@ -131,7 +132,7 @@ if __name__ == "__main__":
     dir = Path("MiraBest") / config["survey"] / "FITS"
     create_path(dir)
 
-    for i, row in meta_data.iterrows():
+    for i, row in tqdm(meta_data.iterrows()):
         filename = name_string(row["label"], row["ra"], row["dec"], row["z"], row["size"]) + ".fits"
         path = dir / filename
 

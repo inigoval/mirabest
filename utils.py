@@ -1,12 +1,26 @@
 import yaml
 
 from pathlib import Path
+from PIL import Image
 
 
 def create_path(*args):
     for path in args:
         if not Path.exists(path):
             Path.mkdir(path, parents=True)
+
+
+def array_to_png(img):
+    """
+    This function converts a numpy array to a png image and saves it to the given path.
+
+    Args:
+        img: Numpy array to convert to png
+    """
+    img = Image.fromarray(img)
+    img = img.convert("L")
+
+    return img
 
 
 def load_config():
