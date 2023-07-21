@@ -3,6 +3,8 @@ import os.path as path
 import random
 import pickle
 import io
+import hashlib
+import os
 
 from pathlib import Path
 from PIL import Image
@@ -131,3 +133,20 @@ if __name__ == "__main__":
     print(path)
 
     build_dataset(path, n_batches=config["n_batches"])
+
+    # Make tarfile
+    tarfile = f"rgz108k-batches-python.tar.gz"
+    batch_dir = path / "batches"
+    print("\nCreating tarfile:")
+    os.system(f"tar -cvzf {str(batch_dir / tarfile)} {str(batch_dir / '*batch*')}")
+
+    print("Saving checksums:")
+    checksums = {}
+    for file in Path.iterdir(path / "batches"):
+        checksum = hashlib.md5(open(file, "rb").read()).hexdigest()
+
+        checksums[str(file)] = checksum
+        print(file, checksum)
+
+    with open(batch_dir / "checksums.pkl", "wb") as f:
+        pickle.dump(checksums, f)
