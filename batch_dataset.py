@@ -124,7 +124,7 @@ def build_dataset(path, n_batches=7):
         print(f"{key}: {value}")
 
     with io.open(batch_dir / "batches.meta", "wb") as f:
-        pickle.dump(dict, f)
+        pickle.dump(metadata, f)
 
 
 if __name__ == "__main__":
@@ -135,7 +135,7 @@ if __name__ == "__main__":
     build_dataset(path, n_batches=config["n_batches"])
 
     # Make tarfile
-    tarfile = f"rgz108k-batches-python.tar.gz"
+    tarfile = "MiraBest_F_batches.tar.gz"
     batch_dir = path / "batches"
     print("\nCreating tarfile:")
     os.system(f"tar -cvzf {str(batch_dir / tarfile)} {str(batch_dir / '*batch*')}")
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     for file in Path.iterdir(path / "batches"):
         checksum = hashlib.md5(open(file, "rb").read()).hexdigest()
 
-        checksums[str(file)] = checksum
+        checksums[str(file.name)] = checksum
         print(file, checksum)
 
     with open(batch_dir / "checksums.pkl", "wb") as f:
